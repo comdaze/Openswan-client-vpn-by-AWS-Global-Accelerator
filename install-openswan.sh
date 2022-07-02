@@ -365,13 +365,13 @@ net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
 EOF
 
-#允许防火墙端口
+# #允许防火墙端口
 
-iptables --table nat --append POSTROUTING --jump MASQUERADE
-iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
-iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
-iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
-service iptables save
+# iptables --table nat --append POSTROUTING --jump MASQUERADE
+# iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
+# iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
+# iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
+# service iptables save
 
 #允许开机启动
 systemctl enable pptpd ipsec xl2tpd

@@ -245,40 +245,6 @@ net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
 ```
 
-### 允许防火墙端口
-创建文件 /usr/lib/firewalld/services/pptpd.xml并修改：
-
-```
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>pptpd</short>
-  <description>PPTP</description>
-  <port protocol="tcp" port="1723"/>
-</service>
-```
-
-创建文件 /usr/lib/firewalld/services/l2tpd.xml并修改：
-
-```
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>l2tpd</short>
-  <description>L2TP IPSec</description>
-  <port protocol="udp" port="500"/>
-  <port protocol="udp" port="4500"/>
-  <port protocol="udp" port="1701"/>
-</service>
-```
-
-### 初始化并重启防火墙：
-```
-iptables --table nat --append POSTROUTING --jump MASQUERADE
-iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
-iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
-iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
-service iptables save
-```
-
 启动并设置开机自启动服务
 ```
 systemctl enable pptpd ipsec xl2tpd
