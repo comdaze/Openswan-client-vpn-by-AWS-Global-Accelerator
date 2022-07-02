@@ -369,7 +369,7 @@ EOF
 
 # 修改xl2tpd.service文件
 rm -f /usr/lib/systemd/system/xl2tpd.service
-cat >>/etc/ppp/chap-secrets<<EOF
+cat >>/usr/lib/systemd/system/xl2tpd.service<<EOF
 [Unit]
 Description=Level 2 Tunnel Protocol Daemon (L2TP)
 Wants=network-online.target

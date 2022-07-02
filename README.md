@@ -218,6 +218,27 @@ username          l2tpd     password               *
 
 注解：第三第四行中username为登录名，password为登录密码
 
+### 修改service配置文件xl2tpd.service
+```
+[Unit]
+Description=Level 2 Tunnel Protocol Daemon (L2TP)
+Wants=network-online.target
+After=network-online.target
+After=ipsec.service
+# Some ISPs in Russia use l2tp without IPsec, so don't insist anymore
+#Wants=ipsec.service
+
+[Service]
+Type=simple
+PIDFile=/run/xl2tpd/xl2tpd.pid
+#ExecStartPre=/sbin/modprobe -q l2tp_ppp
+ExecStart=/usr/sbin/xl2tpd -D
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ### 系统配置
 ### 允许IP转发
 ```
