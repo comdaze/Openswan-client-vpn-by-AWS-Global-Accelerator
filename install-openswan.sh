@@ -8,10 +8,12 @@ fi
 
 
 #获取服务器IP
-serverip=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+serverip=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+publicip=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
 localip=$( curl http://169.254.169.254/latest/meta-data/local-ipv4)
 printf "\e[33m$serverip\e[0m is the server IP?\n"
 printf "\e[33m$localip\e[0m is the server local IP?\n"
+printf "\e[33m$publicip\e[0m is the server local IP?\n"
 printf "If \e[33m$serverip\e[0m is \e[33mcorrect\e[0m, press enter directly.\n"
 printf "If \e[33m$serverip\e[0m is \e[33mincorrect\e[0m, please input your server IP.\n"
 printf "(Default server IP: \e[33m$serverip\e[0m):"
@@ -354,7 +356,6 @@ sysctl -w net.ipv4.conf.all.send_redirects=0
 sysctl -w net.ipv4.conf.default.send_redirects=0
 sysctl -w net.ipv4.conf.all.accept_redirects=0
 sysctl -w net.ipv4.conf.default.accept_redirects=0
-sysctl -w net.ipv4.ip_nonlocal_bind=1
 
 cat >>/etc/sysctl.conf<<EOF
 
@@ -366,7 +367,6 @@ net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
-net.ipv4.ip_nonlocal_bind=1
 EOF
 
 # 修改xl2tpd.service文件
@@ -396,6 +396,7 @@ EOF
 #允许开机启动
 systemctl enable pptpd ipsec xl2tpd
 systemctl restart pptpd ipsec xl2tpd
+systemctl status pptpd ipsec xl2tpd ipsec
 
 
 #测试ipsec
