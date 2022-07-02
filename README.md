@@ -1,23 +1,24 @@
 # 全球加速客户端VPN搭建
 ## 基于Openswan on Amazon Linux 2，AWS Global Accelerator
 
-安装epel源
+### 安装epel源
 为什么要安装epel源呢？是因为必要组件xl2tpd在基础的yum源里面是没有的。
 ```
-yum install epel-release -y
+sudo su
+amazon-linux-extras install epel
 ```
 
-安装依赖组件
+### 安装依赖组件
 安装完epel源以后就可以直接安装依赖组件了。
 
 ```
 yum install -y openswan ppp pptpd xl2tpd wget
 ```
 
-修改配置文件
+### 修改配置文件
 需要等待所有依赖组件安装完成才能执行以下步骤（小标题括号内是文件路径）。
 
-ipsec.conf配置文件（[crayon-62a0695e298b7745176108-i/]）
+### ipsec.conf配置文件
 ```
 # /etc/ipsec.conf - Libreswan IPsec configuration file
 # This file:  /etc/ipsec.conf
@@ -68,14 +69,14 @@ conn L2TP-PSK-noNAT
 #include /etc/ipsec.d/*.conf
 ```
 
-设置预共享密钥配置文件（[crayon-62a0695e298bd960808141-i/]）
+### 设置预共享密钥配置文件
 ```
 #include /etc/ipsec.d/*.secrets
 $serverip username PSK password
 ```
 注解：第二行中username为登录名，password为登录密码
 
-pptpd.conf配置文件([crayon-62a0695e298c2263336789-i/])
+### pptpd.conf配置文件
 ```
 #ppp /usr/sbin/pppd
 option /etc/ppp/options.pptpd
@@ -90,7 +91,8 @@ logwtmp
 localip 10.0.1.2
 remoteip 10.0.1.200-254
 ```
-xl2tpd.conf配置文件([crayon-62a0695e298c7797664040-i/])
+
+### xl2tpd.conf配置文件
 ```
 ;
 ; This is a minimal sample xl2tpd configuration file for use
@@ -124,7 +126,7 @@ pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
 ```
 
-options.pptpd配置文件([crayon-62a0695e298cd013838747-i/])
+### options.pptpd配置文件
 ```
 # Authentication
 name pptpd
@@ -171,7 +173,7 @@ novjccomp
 nologfd
 ```
 
-options.xl2tpd配置文件([crayon-62a0695e298d3337233924-i/])
+### options.xl2tpd配置文件
 ```
 rm -f /etc/ppp/options.xl2tpd
 cat >>/etc/ppp/options.xl2tpd<<EOF
@@ -206,7 +208,7 @@ connect-delay 5000
 # http://rootmanager.com/ubuntu-ipsec-l2tp-windows-domain-auth/setting-up-openswan-xl2tpd-with-native-windows-clients-lucid.html
 ```
 
-创建chap-secrets配置文件，即用户列表及密码([crayon-62a0695e298d8711682965-i/])
+### 创建chap-secrets配置文件，即用户列表及密码
 ```
 # Secrets for authentication using CHAP
 # client     server     secret               IP addresses
@@ -216,8 +218,8 @@ username          l2tpd     password               *
 
 注解：第三第四行中username为登录名，password为登录密码
 
-系统配置
-允许IP转发
+### 系统配置
+### 允许IP转发
 ```
 sysctl -w net.ipv4.ip_forward=1
 sysctl -w net.ipv4.conf.all.rp_filter=0
@@ -243,7 +245,7 @@ net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
 ```
 
-允许防火墙端口
+### 允许防火墙端口
 创建文件 /usr/lib/firewalld/services/pptpd.xml并修改：
 
 ```
@@ -268,18 +270,14 @@ net.ipv4.conf.default.accept_redirects = 0
 </service>
 ```
 
-初始化并重启防火墙：
+### 初始化并重启防火墙：
 ```
-firewall-cmd --reload
-firewall-cmd --permanent --add-service=pptpd
-firewall-cmd --permanent --add-service=l2tpd
-firewall-cmd --permanent --add-service=ipsec
-firewall-cmd --permanent --add-masquerade
-firewall-cmd --permanent --direct --add-rule ipv4 filter FORWARD 0 -p tcp -i ppp+ -j TCPMSS --syn --set-mss 1356
-firewall-cmd --reload
+iptables --table nat --append POSTROUTING --jump MASQUERADE
+iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
+iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
+iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
+service iptables save
 ```
-
-这里是由于CentOS7自带firewall，并且不预装iptables，因此自己也不多此一举去安装了，因为效果都是一样的。
 
 启动并设置开机自启动服务
 ```

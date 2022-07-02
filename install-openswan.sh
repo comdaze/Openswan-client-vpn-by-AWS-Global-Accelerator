@@ -1,12 +1,4 @@
 #!/bin/bash
-#############################################################
-#                                                           #
-# This is a PPTP and L2TP VPN installation for CentOS 7     #
-# Version: 1.1.1 20160507                                   #
-# Author: Bon Hoo                                           #
-# Website: http://www.ccwebsite.com                         #
-#                                                           #
-#############################################################
 
 #检测是否是root用户
 if [[ $(id -u) != "0" ]]; then
@@ -14,24 +6,6 @@ if [[ $(id -u) != "0" ]]; then
     exit 1
 fi
 
-#检测是否是CentOS 7或者RHEL 7
-if [[ $(grep "release 7." /etc/redhat-release 2>/dev/null | wc -l) -eq 0 ]]; then
-    printf "\e[42m\e[31mError: Your OS is NOT CentOS 7 or RHEL 7.\e[0m\n"
-    printf "\e[42m\e[31mThis install script is ONLY for CentOS 7 and RHEL 7.\e[0m\n"
-    exit 1
-fi
-clear
-
-printf "
-#############################################################
-#                                                           #
-# This is a PPTP and L2TP VPN installation for CentOS 7     #
-# Version: 1.1.1 20160507                                   #
-# Author: Bon Hoo                                           #
-# Website: http://www.ccwebsite.com                         #
-#                                                           #
-#############################################################
-"
 
 #获取服务器IP
 serverip=$(ifconfig -a |grep -w "inet"| grep -v "127.0.0.1" |awk '{print $2;}')
@@ -142,7 +116,7 @@ mknod /dev/random c 1 9
 yum update -y
 
 #安装epel源
-yum install epel-release -y
+amazon-linux-extras install epel
 
 #安装依赖的组件
 yum install -y openswan ppp pptpd xl2tpd wget
@@ -392,38 +366,12 @@ net.ipv4.conf.default.accept_redirects = 0
 EOF
 
 #允许防火墙端口
-cat >>/usr/lib/firewalld/services/pptpd.xml<<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>pptpd</short>
-  <description>PPTP and Fuck the GFW</description>
-  <port protocol="tcp" port="1723"/>
-</service>
-EOF
 
-cat >>/usr/lib/firewalld/services/l2tpd.xml<<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>l2tpd</short>
-  <description>L2TP IPSec</description>
-  <port protocol="udp" port="500"/>
-  <port protocol="udp" port="4500"/>
-  <port protocol="udp" port="1701"/>
-</service>
-EOF
-
-firewall-cmd --reload
-firewall-cmd --permanent --add-service=pptpd
-firewall-cmd --permanent --add-service=l2tpd
-firewall-cmd --permanent --add-service=ipsec
-firewall-cmd --permanent --add-masquerade
-firewall-cmd --permanent --direct --add-rule ipv4 filter FORWARD 0 -p tcp -i ppp+ -j TCPMSS --syn --set-mss 1356
-firewall-cmd --reload
-#iptables --table nat --append POSTROUTING --jump MASQUERADE
-#iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
-#iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
-#iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
-#service iptables save
+iptables --table nat --append POSTROUTING --jump MASQUERADE
+iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
+iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
+iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
+service iptables save
 
 #允许开机启动
 systemctl enable pptpd ipsec xl2tpd
@@ -434,15 +382,7 @@ clear
 ipsec verify
 
 printf "
-#############################################################
-#                                                           #
-# This is a PPTP and L2TP VPN installation for CentOS 7     #
-# Version: 1.1.1 20160507                                   #
-# Author: Bon Hoo                                           #
-# Website: http://www.ccwebsite.com                         #
-#                                                           #
-#############################################################
-if there are no [FAILED] above, then you can
+If there are no [FAILED] above, then you can
 connect to your L2TP VPN Server with the default
 user/password below:
 
