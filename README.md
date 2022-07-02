@@ -250,6 +250,7 @@ sysctl -w net.ipv4.conf.all.send_redirects=0
 sysctl -w net.ipv4.conf.default.send_redirects=0
 sysctl -w net.ipv4.conf.all.accept_redirects=0
 sysctl -w net.ipv4.conf.default.accept_redirects=0
+sysctl -w net.ipv4.ip_nonlocal_bind=1
 ```
 
 注解：以上均是命令，复制上去运行即可
@@ -264,6 +265,7 @@ net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.ip_nonlocal_bind=1
 ```
 
 启动并设置开机自启动服务

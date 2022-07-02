@@ -354,6 +354,7 @@ sysctl -w net.ipv4.conf.all.send_redirects=0
 sysctl -w net.ipv4.conf.default.send_redirects=0
 sysctl -w net.ipv4.conf.all.accept_redirects=0
 sysctl -w net.ipv4.conf.default.accept_redirects=0
+sysctl -w net.ipv4.ip_nonlocal_bind=1
 
 cat >>/etc/sysctl.conf<<EOF
 
@@ -365,6 +366,7 @@ net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.ip_nonlocal_bind=1
 EOF
 
 # 修改xl2tpd.service文件
