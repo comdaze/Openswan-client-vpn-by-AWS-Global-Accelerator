@@ -8,10 +8,12 @@ fi
 
 
 #获取服务器IP
-serverip=$(ifconfig -a |grep -w "inet"| grep -v "127.0.0.1" |awk '{print $2;}')
-printf "\e[33m$serverip\e[0m is the server IP?"
-printf "If \e[33m$serverip\e[0m is \e[33mcorrect\e[0m, press enter directly."
-printf "If \e[33m$serverip\e[0m is \e[33mincorrect\e[0m, please input your server IP."
+serverip=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+localip=$( curl http://169.254.169.254/latest/meta-data/local-ipv4)
+printf "\e[33m$serverip\e[0m is the server IP?\n"
+printf "\e[33m$localip\e[0m is the server local IP?\n"
+printf "If \e[33m$serverip\e[0m is \e[33mcorrect\e[0m, press enter directly.\n"
+printf "If \e[33m$serverip\e[0m is \e[33mincorrect\e[0m, please input your server IP.\n"
 printf "(Default server IP: \e[33m$serverip\e[0m):"
 read serveriptmp
 if [[ -n "$serveriptmp" ]]; then
@@ -35,7 +37,7 @@ if [[ $(printf "$ethlist\n" | wc -l) -gt 2 ]]; then
 fi
 
 #设置VPN拨号后分配的IP段
-iprange="10.0.1"
+iprange="172.31.39"
 echo "Please input IP-Range:"
 printf "(Default IP-Range: \e[33m$iprange\e[0m): "
 read iprangetmp
@@ -44,7 +46,7 @@ if [[ -n "$iprangetmp" ]]; then
 fi
 
 #设置预共享密钥
-mypsk="ueibo.cn"
+mypsk="sean"
 echo "Please input PSK:"
 printf "(Default PSK: \e[33mueibo.cn\e[0m): "
 read mypsktmp
@@ -53,7 +55,7 @@ if [[ -n "$mypsktmp" ]]; then
 fi
 
 #设置VPN用户名
-username="ueibo.com"
+username="sean"
 echo "Please input VPN username:"
 printf "(Default VPN username: \e[33mueibo.com\e[0m): "
 read usernametmp
@@ -89,7 +91,7 @@ echo "Server IP:"
 echo "$serverip"
 echo
 echo "Server Local IP:"
-echo "$iprange.1"
+echo "$localip"
 echo
 echo "Client Remote IP Range:"
 echo "$iprange.10-$iprange.254"
@@ -116,7 +118,7 @@ mknod /dev/random c 1 9
 yum update -y
 
 #安装epel源
-amazon-linux-extras install epel
+amazon-linux-extras install epel -y
 
 #安装依赖的组件
 yum install -y openswan ppp pptpd xl2tpd wget
@@ -365,18 +367,34 @@ net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
 EOF
 
-# #允许防火墙端口
+# 修改xl2tpd.service文件
+rm -f /usr/lib/systemd/system/xl2tpd.service
+cat >>/etc/ppp/chap-secrets<<EOF
+[Unit]
+Description=Level 2 Tunnel Protocol Daemon (L2TP)
+Wants=network-online.target
+After=network-online.target
+After=ipsec.service
+# Some ISPs in Russia use l2tp without IPsec, so don't insist anymore
+#Wants=ipsec.service
 
-# iptables --table nat --append POSTROUTING --jump MASQUERADE
-# iptables -t nat -A POSTROUTING -s $iprange.0/24 -o $eth -j MASQUERADE
-# iptables -t nat -A POSTROUTING -s $iprange.0/24 -j SNAT --to-source $serverip
-# iptables -I FORWARD -p tcp –syn -i ppp+ -j TCPMSS –set-mss 1356
-# service iptables save
+[Service]
+Type=simple
+PIDFile=/run/xl2tpd/xl2tpd.pid
+#ExecStartPre=/sbin/modprobe -q l2tp_ppp
+ExecStart=/usr/sbin/xl2tpd -D
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
 
 #允许开机启动
 systemctl enable pptpd ipsec xl2tpd
 systemctl restart pptpd ipsec xl2tpd
-clear
+
 
 #测试ipsec
 ipsec verify
