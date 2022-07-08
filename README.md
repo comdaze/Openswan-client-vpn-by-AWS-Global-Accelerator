@@ -1,274 +1,123 @@
 # 全球加速客户端VPN搭建
 ## 基于Openswan on Amazon Linux 2，AWS Global Accelerator
 
-### 安装epel源
-为什么要安装epel源呢？是因为必要组件xl2tpd在基础的yum源里面是没有的。
+该向导实现海外用户通过VPN客户端访问国内数据中心的服务器资源，通过AWS Global Accelerator利用AWS全球骨干网进行链路加速，这篇向导主要包含在AWS香港区域在EC2上安装Openswan的VPN服务器，AWS Global Accelerator的配置以及在Windows上VPN客户端的配置。不包含transit gateway和direct connect的配置，以及数据中心中心路由器的配置。
+### 架构图
+
+![arch!](./arch.jpg "arch")
+
+### 在EC2上自动化部署Openswan
+在AWS管理控制台上创建操作系统为Amazon Linux 2的实例，申请弹性IP（EIP）关联到这台实例上（该过程略），然后ssh登陆后执行
 ```
 sudo su
-amazon-linux-extras install epel
-```
+yum update -y
+yum install git -y
+git clone https://github.com/comdaze/Openswan-client-vpn-by-AWS-Global-Accelerator.git
+cd Openswan-client-vpn-by-AWS-Global-Accelerator
+sh install-openswan.sh
 
-### 安装依赖组件
-安装完epel源以后就可以直接安装依赖组件了。
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    12  100    12    0     0   7250      0 --:--:-- --:--:-- --:--:-- 12000
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    13  100    13    0     0   6007      0 --:--:-- --:--:-- --:--:--  6500
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    12  100    12    0     0  13714      0 --:--:-- --:--:-- --:--:-- 12000
+172.31.35.46 is the server IP?
+172.31.35.46 is the server local IP?
+18.166.147.52 is the server local IP?
+If 172.31.35.46 is correct, press enter directly.
+If 172.31.35.46 is incorrect, please input your server IP.
+(Default server IP: 172.31.35.46):
 
-```
-yum install -y openswan ppp pptpd xl2tpd wget
-```
+======================================
+Network Interface list:
+eth0
+lo
+ppp0
+======================================
+Which network interface you want to listen for ocserv?
+Default network interface is eth0, let it blank to use default network interface:
 
-### 修改配置文件
-需要等待所有依赖组件安装完成才能执行以下步骤（小标题括号内是文件路径）。
+Please input IP-Range:
+(Default IP-Range: 10.0.0):
 
-### ipsec.conf配置文件
-```
-# /etc/ipsec.conf - Libreswan IPsec configuration file
-# This file:  /etc/ipsec.conf
-#
-# Enable when using this configuration file with openswan instead of libreswan
-#version 2
-#
-# Manual:     ipsec.conf.5
-# basic configuration
-config setup
-    # NAT-TRAVERSAL support, see README.NAT-Traversal
-    nat_traversal=yes
-    # exclude networks used on server side by adding %v4:!a.b.c.0/24
-    virtual_private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12
-    # OE is now off by default. Uncomment and change to on, to enable.
-    oe=off
-    # which IPsec stack to use. auto will try netkey, then klips then mast
-    protostack=netkey
-    force_keepalive=yes
-    keep_alive=1800
-conn L2TP-PSK-NAT
-    rightsubnet=vhost:%priv
-    also=L2TP-PSK-noNAT
-conn L2TP-PSK-noNAT
-    authby=secret
-    pfs=no
-    auto=add
-    keyingtries=3
-    rekey=no
-    ikelifetime=8h
-    keylife=1h
-    type=transport
-    left=$serverip
-    leftid=$serverip
-    leftprotoport=17/1701
-    right=%any
-    rightprotoport=17/%any
-    dpddelay=40
-    dpdtimeout=130
-    dpdaction=clear
-# For example connections, see your distribution's documentation directory,
-# or the documentation which could be located at
-#  /usr/share/docs/libreswan-3.*/ or look at https://www.libreswan.org/
-#
-# There is also a lot of information in the manual page, "man ipsec.conf"
-# You may put your configuration (.conf) file in the "/etc/ipsec.d/" directory
-# by uncommenting this line
-#include /etc/ipsec.d/*.conf
-```
+Please input PSK:
+(Default PSK: ueibo.cn): sean.com
 
-### 设置预共享密钥配置文件
-```
-#include /etc/ipsec.d/*.secrets
-$serverip username PSK password
-```
-注解：第二行中username为登录名，password为登录密码
+Please input VPN username:
+(Default VPN username: ueibo.com): sean
+Please input sean's password:
+Default password is NBuOLTJXyE, let it blank to use default password: NBuOLTJXyE
 
-### pptpd.conf配置文件
-```
-#ppp /usr/sbin/pppd
-option /etc/ppp/options.pptpd
-#debug
-# stimeout 10
-#noipparam
-logwtmp
-#vrf test
-#bcrelay eth1
-#delegate
-#connections 100
-localip 10.0.1.2
-remoteip 10.0.1.200-254
-```
+Server Local IP:
+172.31.35.46
 
-### xl2tpd.conf配置文件
-```
-;
-; This is a minimal sample xl2tpd configuration file for use
-; with L2TP over IPsec.
-;
-; The idea is to provide an L2TP daemon to which remote Windows L2TP/IPsec
-; clients connect. In this example, the internal (protected) network
-; is 192.168.1.0/24.  A special IP range within this network is reserved
-; for the remote clients: 192.168.1.128/25
-; (i.e. 192.168.1.128 ... 192.168.1.254)
-;
-; The listen-addr parameter can be used if you want to bind the L2TP daemon
-; to a specific IP address instead of to all interfaces. For instance,
-; you could bind it to the interface of the internal LAN (e.g. 192.168.1.98
-; in the example below). Yet another IP address (local ip, e.g. 192.168.1.99)
-; will be used by xl2tpd as its address on pppX interfaces.
-[global]
-; ipsec saref = yes
-listen-addr = 104.171.165.91
-auth file = /etc/ppp/chap-secrets
-port = 1701
-[lns default]
-ip range = 10.0.1.100-10.0.1.254
-local ip = 10.0.1.1
-refuse chap = yes
-refuse pap = yes
-require authentication = yes
-name = L2TPVPN
-ppp debug = yes
-pppoptfile = /etc/ppp/options.xl2tpd
-length bit = yes
-```
+Client Remote IP Range:
+10.0.0.10-10.0.0.254
 
-### options.pptpd配置文件
-```
-# Authentication
-name pptpd
-#chapms-strip-domain
-# Encryption
-# BSD licensed ppp-2.4.2 upstream with MPPE only, kernel module ppp_mppe.o
-# {{{
-refuse-pap
-refuse-chap
-refuse-mschap
-# Require the peer to authenticate itself using MS-CHAPv2 [Microsoft
-# Challenge Handshake Authentication Protocol, Version 2] authentication.
-require-mschap-v2
-# Require MPPE 128-bit encryption
-# (note that MPPE requires the use of MSCHAP-V2 during authentication)
-require-mppe-128
-# }}}
-# OpenSSL licensed ppp-2.4.1 fork with MPPE only, kernel module mppe.o
-# {{{
-#-chap
-#-chapms
-# Require the peer to authenticate itself using MS-CHAPv2 [Microsoft
-# Challenge Handshake Authentication Protocol, Version 2] authentication.
-#+chapms-v2
-# Require MPPE encryption
-# (note that MPPE requires the use of MSCHAP-V2 during authentication)
-#mppe-40    # enable either 40-bit or 128-bit, not both
-#mppe-128
-#mppe-stateless
-# }}}
-ms-dns 8.8.4.4
-ms-dns 8.8.8.8
-#ms-wins 10.0.0.3
-#ms-wins 10.0.0.4
-proxyarp
-#10.8.0.100
-# Logging
-#debug
-#dump
-lock
-nobsdcomp 
-novj
-novjccomp
-nologfd
-```
+PSK:
+sean.com
 
-### options.xl2tpd配置文件
-```
-rm -f /etc/ppp/options.xl2tpd
-cat >>/etc/ppp/options.xl2tpd<<EOF
-#require-pap
-#require-chap
-#require-mschap
-ipcp-accept-local
-ipcp-accept-remote
-require-mschap-v2
-ms-dns 8.8.8.8
-ms-dns 8.8.4.4
-asyncmap 0
-auth
-crtscts
-lock
-hide-password
-modem
-debug
-name l2tpd
-proxyarp
-lcp-echo-interval 30
-lcp-echo-failure 4
-mtu 1400
-noccp
-connect-delay 5000
-# To allow authentication against a Windows domain EXAMPLE, and require the
-# user to be in a group "VPN Users". Requires the samba-winbind package
-# require-mschap-v2
-# plugin winbind.so
-# ntlm_auth-helper '/usr/bin/ntlm_auth --helper-protocol=ntlm-server-1 --require-membership-of="EXAMPLE\VPN Users"'
-# You need to join the domain on the server, for example using samba:
-# http://rootmanager.com/ubuntu-ipsec-l2tp-windows-domain-auth/setting-up-openswan-xl2tpd-with-native-windows-clients-lucid.html
-```
-
-### 创建chap-secrets配置文件，即用户列表及密码
-```
-# Secrets for authentication using CHAP
-# client     server     secret               IP addresses
-username          pptpd     password               *
-username          l2tpd     password               *
-```
-
-注解：第三第四行中username为登录名，password为登录密码
-
-### 修改service配置文件xl2tpd.service
-```
-[Unit]
-Description=Level 2 Tunnel Protocol Daemon (L2TP)
-Wants=network-online.target
-After=network-online.target
-After=ipsec.service
-# Some ISPs in Russia use l2tp without IPsec, so don't insist anymore
-#Wants=ipsec.service
-
-[Service]
-Type=simple
-PIDFile=/run/xl2tpd/xl2tpd.pid
-#ExecStartPre=/sbin/modprobe -q l2tp_ppp
-ExecStart=/usr/sbin/xl2tpd -D
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 系统配置
-### 允许IP转发
-```
-sysctl -w net.ipv4.ip_forward=1
-sysctl -w net.ipv4.conf.all.rp_filter=0
-sysctl -w net.ipv4.conf.default.rp_filter=0
-sysctl -w net.ipv4.conf.$eth.rp_filter=0
-sysctl -w net.ipv4.conf.all.send_redirects=0
-sysctl -w net.ipv4.conf.default.send_redirects=0
-sysctl -w net.ipv4.conf.all.accept_redirects=0
-sysctl -w net.ipv4.conf.default.accept_redirects=0
-```
-
-注解：以上均是命令，复制上去运行即可
-也可以修改配置文件( /etc/sysctl.conf)：
+Press any key to start...
 
 ```
-net.ipv4.ip_forward = 1
-net.ipv4.conf.all.rp_filter = 0
-net.ipv4.conf.default.rp_filter = 0
-net.ipv4.conf.$eth.rp_filter = 0
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
+接下来屏幕会输出安装过程，确认所有服务启动正常，最后会显示如下信息：
+```
+If there are no [FAILED] above, then you can
+connect to your L2TP VPN Server with the default
+user/password below:
+
+ServerIP: 172.31.35.46
+username: sean
+password: NBuOLTJXyE
+PSK: sean.com
 ```
 
-启动并设置开机自启动服务
-```
-systemctl enable pptpd ipsec xl2tpd
-systemctl restart pptpd ipsec xl2tpd
-```
+手动安装参考：[在EC2上手动部署Openswan](./Manual-installation.md)
 
+### AWS Global Accelerator配置
+进入AWS Global Accelerator服务配置界面，创建新的Accelerator
+
+![create-ga](./create-ga.png "create-ga")
+
+添加listener
+
+![add-listeners.png](./add-listeners.png "add-listeners.png")
+
+添加endpint group
+
+![add-endpoint-groups.png](./add-endpoint-groups.png "add-endpoint-groups.png")
+
+添加endpoint,点击Create accelerator
+![add-endpoints.png](./add-endpoints.png "add-endpoints.png")
+
+等待创建完成后，可以查看配置，可以看到分配了两个静态公网IP，和一个DNS Name
+
+![configurtion.png](./configurtion.png "configurtion.png")
+
+复制这个DNS Name，下一步在Windows客户端配置VPN Client，在Windows Setting查找VPN
+
+![settings-VPN.png](./settings-VPN.png "settings-VPN.png")
+
+增加一个VPN连接，如下信息，服务器名称输入上一步创建的Accelerator的DNS Name，VPN类型选择L2TP/IPsec with certificate，用户名密码为Openswan安装过程中输入的用户名密码
+
+![add-VPN-connection.png](./add-VPN-connection.png "add-VPN-connection.png")
+
+创建完成后，点击连接，成功连接后查看获得IP地址：
+
+![ipconfig.png](./ipconfig.png "ipconfig.png")
+
+为了让VPN客户端可以访问VPC内部的其他服务器，在这些服务器实例所在的子网的路由表增加一条记录：
+
+![add-route.png](./add-route.png "add-route.png")
+
+最后在VPN客户端上ping一台VPC中的服务器实例：
+![ping.png](./ping.png "ping.png")
+
+可以看到延迟为304ms，如果VPN客户端直接连接VPN服务器的公网IP，延迟为350ms。
+
+### 结论
+通过AWS Global Accelerator确实可以实现VPN客户端的加速访问！
