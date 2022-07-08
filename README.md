@@ -1,7 +1,7 @@
 # 全球加速客户端VPN搭建
 ## 基于Openswan on Amazon Linux 2，AWS Global Accelerator
 
-该向导实现海外用户通过VPN客户端访问国内数据中心的服务器资源，通过AWS Global Accelerator利用AWS全球骨干网进行链路加速，这篇向导主要包含在AWS香港区域在EC2上安装Openswan的VPN服务器，AWS Global Accelerator的配置以及在Windows上VPN客户端的配置。不包含transit gateway和direct connect的配置，以及数据中心中心路由器的配置。
+该向导实现海外用户通过VPN客户端访问国内数据中心的服务器资源，通过AWS Global Accelerator利用AWS全球骨干网进行链路加速，这篇向导主要包含在AWS香港区域在EC2上安装Openswan的VPN服务器，AWS Global Accelerator的配置以及在Windows上VPN客户端的配置。不包含transit gateway和direct connect的配置，以及数据中心路由器的配置。
 ### 架构图
 
 ![arch!](./arch.jpg "arch")
