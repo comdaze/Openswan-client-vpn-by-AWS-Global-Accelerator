@@ -80,8 +80,9 @@ PSK: sean.com
 
 ### 修改EC2联网设置
 默认情况下，源/目的地检查是由你的EC2实例执行的。Openswan的EC2作为VPN Server是一个NAT实例，要处理来源或目的地不是它自己，所以要停止源/目的地检查。
-选中该实例, 点击**Actions**，选择**Netwoking**,选择**Change source/destination check**：
+选中该实例, 点击**Actions**，选择**Netwoking**,选择**Change source/destination check**。
 ![Networking](./Networking.png "Networking")
+
 进入**Source/destination check**设置页面，勾选**Stop**，然后**Save**。
 ![source-dest-check.png](./source-dest-check.png "source-dest-check.png")
 
